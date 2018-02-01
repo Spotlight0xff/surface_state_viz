@@ -1,0 +1,3 @@
+[submodule "cpp/libs/TinyTIFF"]
+	path = cpp/libs/TinyTIFF
+	url = https://github.com/jkriege2/TinyTIFF
