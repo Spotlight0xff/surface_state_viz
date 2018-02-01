@@ -152,7 +152,7 @@ verbose = True
 draw_box = True # Show the grid? Can be toggled by using the "#" key
 
 # Use precomputed numpy data array instead of translating it each time
-preload_data =True
+preload_data = False
 
 # Mouse sensitivity for rotating
 sensitivity = 0.5
@@ -170,7 +170,7 @@ if verbose: print (border_guess, 'Border guess')
 if preload_data:
     data, frames = preload(verbose)
 else:
-    load_tiff(verbose)
+    data, frames = load_tiff(verbose)
 ################################ PARABOLOID FIT
 if verbose: print("Calculating fit")
 #data[-2] *= -1

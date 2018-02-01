@@ -8,6 +8,9 @@ from PIL import Image
 #Read the Tags of the TIFF Image
 from PIL.TiffTags import TAGS
 
+# For checking wheter a preload file exists
+import os  
+
 
 tiff_file = '../data/014_HHGAU111.tif'
 preload_file = '../data/particle_data.npy'
@@ -75,4 +78,7 @@ def load_tiff(verbose=False):
             if verbose: print (data.shape, 'New data tensor')
     data = data.astype(np.float64) # convert to float!
     if verbose: print (data[:,0], data[:,-1])
-    return data
+    if not os.path.isfile(preload_file):
+        if verbose: print ("No preload file found: Saving current particle data")
+        np.save(preload_file, data)
+    return data, frames
