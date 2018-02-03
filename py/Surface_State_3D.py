@@ -89,7 +89,7 @@ void main()
     if (dist > vRadius) {
         discard;
     } else {
-        gl_FragColor = vec4(vColor.rgb, vColor*alpha);
+        gl_FragColor = vec4(vColor.rgb, vColor.a*alpha);
     }
 }
 """
