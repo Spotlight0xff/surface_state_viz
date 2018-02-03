@@ -5,6 +5,8 @@ import numpy.ma as ma
 # Three-dimensional scatter plots
 from mpl_toolkits.mplot3d import Axes3D
 # Matplotlib
+import matplotlib
+matplotlib.use("Qt4Agg")
 import matplotlib.pyplot as plt
 # Glumpy package for GPU-rendering
 from glumpy import app, gl, gloo, glm, transforms
@@ -195,14 +197,25 @@ density_idx = np.transpose(np.nonzero(volume_data))
 # add
 density = np.zeros((density_idx.shape[0],4), np.float32)
 density[:,:-1] = density_idx
-density[::,3] = volume_data[density_idx[:,0], density_idx[:,1], density_idx[:,2]]
-max_density = density[::,3].max()
+density[:,3] = volume_data[density_idx[:,0], density_idx[:,1], density_idx[:,2]]
+max_density = density[:,3].max()
 
 # re-normalize
 density[:,:-1] /= float(box_size)
 density[:,:-1] -= 0.5
 density[:,3] /= max_density
-print(density[:,3])
+
+import seaborn as sns
+cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
+for i in range(50):
+    plt.clf()
+    b = np.where(density[:,2] == (i/float(box_size)-0.5))
+    print(b)
+    den = density[b]
+    if den.shape[1] == 0 or len(den)==0: continue
+    print('step %i, den: %s' % (i, den.shape))
+    sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
+    plt.savefig('density_%i.png' % i)
 print('max density: ', max_density)
 
 counter = density.shape[0]
