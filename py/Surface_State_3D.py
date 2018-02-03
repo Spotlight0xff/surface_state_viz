@@ -33,104 +33,77 @@ def paraBolEqn(data,b,curv,d, zcenter):
 vertex = """
 #version 120
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-uniform float linewidth;
-uniform float antialias;
+uniform float uBoxsize;
 
-attribute vec4  fg_color;
-attribute vec4  bg_color;
-attribute float radius;
+
+uniform float uTransfer1;
+uniform float uTransfer2;
+
+attribute float aDensity;
+
+attribute vec4  aColor;
+attribute float aRadius;
 attribute vec3  position;
 
-varying float v_pointsize;
-varying float v_radius;
-varying vec4  v_fg_color;
-varying vec4  v_bg_color;
+varying vec4 vColor;
+varying float vRadius;
+
+vec4 densityTransfer(float aDensity) {
+    if (aDensity < uTransfer1) {
+        return vec4(0.1, 0.1, 0.1, aDensity);
+    } else if (aDensity > uTransfer2) {
+        return vec4(0.8, 0.1, 0.1, aDensity);
+    }
+
+    // 0.1 -> (uTransfer1) -> smooth -> (uTransfer2) -> 0.8
+    float r = 0.1 + 0.7 * smoothstep(uTransfer1, uTransfer2, aDensity);
+    return vec4(r, 0.1, 0.1, aDensity);
+}
+
 void main (void)
 {
-    v_radius = radius;
-    v_fg_color = fg_color;
-    v_bg_color = bg_color;
+    vRadius = aRadius;
+    vColor = densityTransfer(aDensity);
 
     gl_Position = <transform>;
-    gl_PointSize = 2 * (v_radius + linewidth + 1.5*antialias);
+    gl_PointSize = vRadius * 5*aDensity;
 }
 """
-    # // gl_Position = projection * view * model * vec4(position,1.0);
 
 # Fragment shader for all data points
 fragment = """
 #version 120
 
-uniform float linewidth;
-uniform float antialias;
+uniform float uBoxSize;
 
-varying float v_radius;
-varying vec4  v_fg_color;
-varying vec4  v_bg_color;
-
-float marker(vec2 P, float size)
-{
-   const float SQRT_2 = 1.4142135623730951;
-   float x = SQRT_2/2 * (P.x - P.y);
-   float y = SQRT_2/2 * (P.x + P.y);
-
-   float r1 = max(abs(x)- size/2, abs(y)- size/10);
-   float r2 = max(abs(y)- size/2, abs(x)- size/10);
-   float r3 = max(abs(P.x)- size/2, abs(P.y)- size/10);
-   float r4 = max(abs(P.y)- size/2, abs(P.x)- size/10);
-   return min( min(r1,r2), min(r3,r4));
-}
-
+varying float vRadius;
+varying vec4  vColor;
 
 void main()
 {
-    float r = (v_radius + linewidth + 1.5*antialias);
-    float t = linewidth/2.0 - antialias;
-    float signed_distance = length(gl_PointCoord.xy - vec2(0.5,0.5)) * 2 * r - v_radius;
-//    float signed_distance = marker((gl_PointCoord.xy - vec2(0.5,0.5))*r*2, 2*v_radius);
-    float border_distance = abs(signed_distance) - t;
-    float alpha = border_distance/antialias;
-    alpha = exp(-alpha*alpha);
+    float dist = length(gl_PointCoord.xy - vec2(0.5,0.5)) * vRadius;
+    float alpha = exp(-dist);
 
-    // Inside shape
-    if( signed_distance < 0 ) {
-        // Fully within linestroke
-        if( border_distance < 0 ) {
-            gl_FragColor = v_fg_color;
-        } else {
-            gl_FragColor = mix(v_bg_color, v_fg_color, alpha);
-        }
-    // Outside shape
+    if (dist > vRadius) {
+        discard;
     } else {
-        // Fully within linestroke
-        if( border_distance < 0 ) {
-            gl_FragColor = v_fg_color;
-        } else if( abs(signed_distance) < (linewidth/2.0 + antialias) ) {
-            gl_FragColor = vec4(v_fg_color.rgb, v_fg_color.a * alpha);
-        } else {
-            discard;
-        }
+        gl_FragColor = vec4(vColor.rgb, vColor*alpha);
     }
 }
 """
 
 # Vertex shader for the grid, colors are currently not used in the rendering
 vertex_box = """
-uniform vec4 ucolor;
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-attribute vec3 position;
-attribute vec4 color;
+uniform vec4 uColor;
 
-varying vec4 v_color;
+attribute vec3 position;
+attribute vec4 aColor;
+
+varying vec4 vColor;
 
 void main()
 {
-    v_color = ucolor * color;
+    vColor = uColor * aColor;
     gl_Position = <transform>;
 }
 """
@@ -138,10 +111,10 @@ void main()
 # Fragment shader for the grid
 
 fragment_box = """
-varying vec4 v_color;
+varying vec4 vColor;
 void main()
 {
-    gl_FragColor = v_color;
+    gl_FragColor = vColor;
 }
 """
 
@@ -195,9 +168,8 @@ if verbose: print ("r squared:", r_squared)
 
 #data = coords_masked # THATS ONLY A TEST!!!
 
-counter = data.shape[1]
+# counter = data.shape[1]
 
-if verbose: print ('Counts in total', counter)
 
 ################### REDUCTION OF DATA POINTS
 #### Reduce the data shown for performance reasons, use step as a divider
@@ -291,31 +263,27 @@ box = gloo.Program(vertex_box, fragment_box, count=48)
 
 if verbose: print (vertices, vertices.shape, type(vertices))
 box.bind(vertices)
-if verbose: print (box['position'])
 if verbose: print (box['position'].shape)
 
-
-program['position'] = np.transpose(data)
-program['radius']   = 1.#np.random.uniform(5,10,counter)
-program['fg_color'] = 1,0,0,1
+# data is now (n,4) where [:,:-1] are the coords and [:,-1] is the density
+program['position'] = np.transpose(density[:,:-1].T)
+program['uBoxsize'] = box_size
+program['aRadius']   = 10
+program['aColor'] = 1,0,0,1
+# some sane defaults for the transfer function to color the densities
+program['uTransfer1'] = 0.3
+program['uTransfer2'] = 0.5
 #colors = np.random.uniform(0.75, 1.00, (counter, 4))
 colors = np.random.uniform(0.01, 0.02, (counter, 4))
 # Change the red part of the color of data points to give an impression of the z value
-colors[:,0] = data[2, :]+0.5
+colors[:,0] = 0.5
 #colors[:,1] = data[2, :]
 #colors[:,2] = data[2, :]
 ######################################################### TRANSPARENCY
-colors[:,3] = 0.02 # 1 equals no transparency at all
+# colors[:,3] = density[:,3] # 1 equals no transparency at all
+program['aDensity'] = density[:,3]
 # while using transparency, higher radii are recommended
 ######################################################### END TRANSPARENCY
-if verbose: print(colors[:10, :])
-program['bg_color'] = colors
-program['fg_color'] = colors
-program['linewidth'] = 0#1.0#1.0
-program['antialias'] = 0#1.0#1.0
-program['model'] = np.eye(4, dtype=np.float32) # Model will be at the origin
-program['projection'] = np.eye(4, dtype=np.float32)
-program['view'] = view
 
 transform = Trackball(Position('position'), distance=3)
 program['transform'] = transform
@@ -334,7 +302,7 @@ def on_draw(dt):
         gl.glDisable(gl.GL_POLYGON_OFFSET_FILL)
         gl.glDepthMask(gl.GL_FALSE)
         # Grid color is BLACK
-        box['ucolor'] = 0., 0., 0., 1
+        box['uColor'] = 0., 0., 0., 1
         box.draw(gl.GL_LINES)#, outline)
         # gl.glDepthMask(gl.GL_TRUE) 
 
@@ -375,5 +343,19 @@ def on_character(character):
     if character == 'n':
         box['position'] -= [0, 0, +0.02]
         program['position'] -= [0, 0, +0.02]
+    if character == 's':
+        program['uTransfer1'] -= 0.05
+        print("transfer1: ", program['uTransfer1'])
+    if character == 'w':
+        program['uTransfer1'] += 0.05
+        print("transfer1: ", program['uTransfer1'])
+    if character == 'a':
+        program['uTransfer2'] -= 0.05
+        print("transfer2: ", program['uTransfer2'])
+    if character == 'd':
+        program['uTransfer2'] += 0.05
+        print("transfer1: ", program['uTransfer2'])
+
+
 
 app.run(framerate=144)
