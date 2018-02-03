@@ -52,7 +52,7 @@ varying float vRadius;
 
 vec4 densityTransfer(float aDensity) {
     if (aDensity < uTransfer1) {
-        return vec4(0.1, 0.1, 0.1, aDensity);
+        return vec4(0.1, 0.1, 0.1, 0.0);
     } else if (aDensity > uTransfer2) {
         return vec4(0.8, 0.1, 0.1, aDensity);
     }
@@ -175,8 +175,8 @@ if verbose: print ("r squared:", r_squared)
 
 ################### REDUCTION OF DATA POINTS
 #### Reduce the data shown for performance reasons, use step as a divider
-step = 10
-data = data[:, ::step]
+# step = 10
+# data = data[:, ::step]
 data[0] /= 1401.
 data[1] /= 1401.
 data[2] /= 1.*frames
@@ -190,7 +190,7 @@ if verbose: print (data[:,0], data[:,-1])
 # bounding box
 bb_min = data.min(axis=1)
 bb_max = data.max(axis=1)
-box_size = 200
+box_size = 500
 volume_data, edges = np.histogramdd(data.T, bins=box_size)
 
 density_idx = np.transpose(np.nonzero(volume_data))
@@ -207,7 +207,7 @@ density[:,3] /= max_density
 
 import seaborn as sns
 cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
-for i in range(50):
+for i in range(1):
     plt.clf()
     b = np.where(density[:,2] == (i/float(box_size)-0.5))
     print(b)
@@ -215,7 +215,7 @@ for i in range(50):
     if den.shape[1] == 0 or len(den)==0: continue
     print('step %i, den: %s' % (i, den.shape))
     sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
-    plt.savefig('density_%i.png' % i)
+    # plt.show()
 print('max density: ', max_density)
 
 counter = density.shape[0]
@@ -309,6 +309,9 @@ def on_draw(dt):
     global theta, phi, zeta, translate
     window.clear()
     program.draw(gl.GL_POINTS)
+    transform.on_mouse_drag(window.width//2, window.height/2 + 200, 1, 0, 0)
+
+    # print(transform.phi, transform.theta)
     #ticks.draw()
     if draw_box:
         # Outlined cube
