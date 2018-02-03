@@ -1,3 +1,6 @@
 [submodule "cpp/libs/TinyTIFF"]
 	path = cpp/libs/TinyTIFF
 	url = https://github.com/jkriege2/TinyTIFF
+[submodule "PyMCubes"]
+	path = PyMCubes
+	url = https://github.com/pmneila/PyMCubes
