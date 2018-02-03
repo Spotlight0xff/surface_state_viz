@@ -208,11 +208,34 @@ data[1] /= 1401.
 data[2] /= 1.*frames
 data -= 0.5
 if verbose: print (data[:,0], data[:,-1])
-for i in range(int(counter/100000)-1):
-	if verbose: print (data[:, i*100])
 
-counter = int(counter/step)+1
+# counter = int(counter/step)+1
 ################### END OF REDUCTION OF DATA POINTS
+
+################### VOLUME DATA
+# bounding box
+bb_min = data.min(axis=1)
+bb_max = data.max(axis=1)
+box_size = 200
+volume_data, edges = np.histogramdd(data.T, bins=box_size)
+
+density_idx = np.transpose(np.nonzero(volume_data))
+# add
+density = np.zeros((density_idx.shape[0],4), np.float32)
+density[:,:-1] = density_idx
+density[::,3] = volume_data[density_idx[:,0], density_idx[:,1], density_idx[:,2]]
+max_density = density[::,3].max()
+
+# re-normalize
+density[:,:-1] /= float(box_size)
+density[:,:-1] -= 0.5
+density[:,3] /= max_density
+print(density[:,3])
+print('max density: ', max_density)
+
+counter = density.shape[0]
+if verbose: print ('Counts in total', counter)
+################### END VOLUME DATA
 
 ################### GLUMPY INITIALIZATION
 theta, phi, zeta = 0, 0, 0
