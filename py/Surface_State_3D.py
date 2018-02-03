@@ -53,8 +53,10 @@ varying float vRadius;
 vec4 densityTransfer(float aDensity) {
     if (aDensity < uTransfer1) {
         return vec4(0.1, 0.1, 0.1, 0.0);
-    } else if (aDensity > uTransfer2) {
+    } else if (aDensity < uTransfer2) {
         return vec4(0.8, 0.1, 0.1, aDensity);
+    } else {
+        return vec4(0.8, 0.8, 0.1, aDensity);
     }
 
     // 0.1 -> (uTransfer1) -> smooth -> (uTransfer2) -> 0.8
@@ -84,7 +86,7 @@ varying vec4  vColor;
 void main()
 {
     float dist = length(gl_PointCoord.xy - vec2(0.5,0.5)) * vRadius;
-    float alpha = exp(-dist);
+    float alpha = exp(-dist*dist);
 
     if (dist > vRadius) {
         discard;
