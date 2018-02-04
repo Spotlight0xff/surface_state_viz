@@ -53,8 +53,10 @@ varying float vRadius;
 vec4 densityTransfer(float aDensity) {
     if (aDensity < uTransfer1) {
         return vec4(0.1, 0.1, 0.1, 0.0);
-    } else if (aDensity > uTransfer2) {
+    } else if (aDensity < uTransfer2) {
         return vec4(0.8, 0.1, 0.1, aDensity);
+    } else {
+        return vec4(0.8, 0.8, 0.1, aDensity);
     }
 
     // 0.1 -> (uTransfer1) -> smooth -> (uTransfer2) -> 0.8
@@ -84,7 +86,7 @@ varying vec4  vColor;
 void main()
 {
     float dist = length(gl_PointCoord.xy - vec2(0.5,0.5)) * vRadius;
-    float alpha = exp(-dist);
+    float alpha = exp(-dist*dist);
 
     if (dist > vRadius) {
         discard;
@@ -93,6 +95,26 @@ void main()
     }
 }
 """
+# Vertex shader for the isosurface
+surface_vert = """
+attribute vec3 position;
+
+void main()
+{
+    gl_Position = <transform>;
+}
+"""
+
+# Fragment shader for the isosurface
+
+surface_frag = """
+void main()
+{
+    gl_FragColor = vec4(1.0,0.0,0., 0.1);
+}
+"""
+
+
 
 # Vertex shader for the grid, colors are currently not used in the rendering
 vertex_box = """
@@ -191,7 +213,7 @@ if verbose: print (data[:,0], data[:,-1])
 # bounding box
 bb_min = data.min(axis=1)
 bb_max = data.max(axis=1)
-box_size = 500
+box_size = 50
 volume_data, edges = np.histogramdd(data.T, bins=box_size)
 
 density_idx = np.transpose(np.nonzero(volume_data))
@@ -206,16 +228,29 @@ density[:,:-1] /= float(box_size)
 density[:,:-1] -= 0.5
 density[:,3] /= max_density
 
-import seaborn as sns
-cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
-for i in range(1):
-    plt.clf()
-    b = np.where(density[:,2] == (i/float(box_size)-0.5))
-    print(b)
-    den = density[b]
-    if den.shape[1] == 0 or len(den)==0: continue
-    print('step %i, den: %s' % (i, den.shape))
-    sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
+
+import mcubes
+# roughly uTransfer1 (*max_density, as its not normalized)
+surface_vertices, surface_indices = mcubes.marching_cubes(volume_data, 0.35*max_density)
+surface_indices = surface_indices.reshape(-1).astype(np.uint32).view(gloo.IndexBuffer)
+
+surface_vertices /= float(box_size)
+surface_vertices -= 0.5
+# surface_vertices = vertices.view(gloo.VertexBuffer)
+import ipdb; ipdb.set_trace()
+surface = gloo.Program(vertex=surface_vert, fragment=surface_frag)
+surface['position'] = surface_vertices
+
+# import seaborn as sns
+# cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
+# for i in range(1):
+    # plt.clf()
+    # b = np.where(density[:,2] == (i/float(box_size)-0.5))
+    # print(b)
+    # den = density[b]
+    # if den.shape[1] == 0 or len(den)==0: continue
+    # print('step %i, den: %s' % (i, den.shape))
+    # sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
     # plt.show()
 print('max density: ', max_density)
 
@@ -302,6 +337,7 @@ program['aDensity'] = density[:,3]
 transform = Trackball(Position('position'), distance=3)
 program['transform'] = transform
 box['transform'] = transform
+surface['transform'] = transform
 window.attach(transform)
 
 
@@ -310,27 +346,30 @@ def on_draw(dt):
     global theta, phi, zeta, translate
     window.clear()
     program.draw(gl.GL_POINTS)
+    gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+    surface.draw(gl.GL_TRIANGLES, indices=surface_indices)
     transform.on_mouse_drag(window.width//2, window.height/2 + 200, 1, 0, 0)
 
     # print(transform.phi, transform.theta)
     #ticks.draw()
-    if draw_box:
+    # if draw_box:
         # Outlined cube
-        gl.glDisable(gl.GL_POLYGON_OFFSET_FILL)
-        gl.glDepthMask(gl.GL_FALSE)
+        # gl.glDisable(gl.GL_POLYGON_OFFSET_FILL)
+        # gl.glDepthMask(gl.GL_FALSE)
         # Grid color is BLACK
-        box['uColor'] = 0., 0., 0., 1
-        box.draw(gl.GL_LINES)#, outline)
+        # box['uColor'] = 0., 0., 0., 1
+        # box.draw(gl.GL_LINES)#, outline)
         # gl.glDepthMask(gl.GL_TRUE) 
 
 
 @window.event
 def on_init():
+    pass
     # gl.glEnable(gl.GL_DEPTH_TEST)
     # # gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
-    gl.glPolygonOffset(1, 1)
-    gl.glEnable(gl.GL_LINE_SMOOTH)
-    gl.glLineWidth(0.02)
+    # gl.glPolygonOffset(1, 1)
+    # gl.glEnable(gl.GL_LINE_SMOOTH)
+    # gl.glLineWidth(0.02)
 
 @window.event
 def on_key_press(key, modifiers):
@@ -361,16 +400,16 @@ def on_character(character):
         box['position'] -= [0, 0, +0.02]
         program['position'] -= [0, 0, +0.02]
     if character == 's':
-        program['uTransfer1'] -= 0.05
+        program['uTransfer1'] -= 0.01
         print("transfer1: ", program['uTransfer1'])
     if character == 'w':
-        program['uTransfer1'] += 0.05
+        program['uTransfer1'] += 0.01
         print("transfer1: ", program['uTransfer1'])
     if character == 'a':
-        program['uTransfer2'] -= 0.05
+        program['uTransfer2'] -= 0.01
         print("transfer2: ", program['uTransfer2'])
     if character == 'd':
-        program['uTransfer2'] += 0.05
+        program['uTransfer2'] += 0.01
         print("transfer1: ", program['uTransfer2'])
 
 
