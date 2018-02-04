@@ -10,12 +10,15 @@ from PIL.TiffTags import TAGS
 
 # For checking wheter a preload file exists
 import os  
+import scipy.optimize as opt
+
 
 
 tiff_file = '../data/014_HHGAU111.tif'
 preload_file = '../data/particle_data.npy'
 
-
+def EnergyFunc(t, a, t0):
+    return  float(a)/(t - t0)**2
 def preload(verbose=False):
     if verbose: print('Loading preloaded numpy array at "%s"' % preload_file)
     data = np.load(preload_file)
@@ -27,6 +30,14 @@ def preload(verbose=False):
     if verbose: print('Loaded TIFF file information')
     return data, im.n_frames
 
+def time2energy(data, Slide_EF, Slide_SS, E_Ph, E_SS, E_b, verbose = False):
+    """ Calculates the energie of the voxels based on information at which slide the Fermi energy and the surface state can be found."""
+    param_guess = [5.9*10**7, -1650]
+    popt,pcov=opt.curve_fit(EnergyFunc,[Slide_EF, Slide_SS], [E_Ph-E_b, E_Ph-E_b-E_SS], p0=param_guess , maxfev=1000000)
+    a, t0 = popt
+    data[2] = EnergyFunc(data[2], a, t0)-(E_Ph-E_b)
+    if verbose: print (popt, 'sind die Parameter')
+    return data
 
 def load_tiff(verbose=False):
     im = Image.open('../data/014_HHGAU111.tif')
