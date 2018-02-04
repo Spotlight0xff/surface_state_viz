@@ -22,7 +22,7 @@ from glumpy.transforms import Trackball, Position
 # Used for vertices and indices of a cube
 from glumpy.geometry import colorcube, primitives 
 
-from data import load_tiff, preload
+from data import load_tiff, preload, time2energy
 
 def paraBolEqn(data,b,curv,d, zcenter):
     ''' Equation for the paraboloid used to fit the surface state at the Fermi edge.'''
@@ -127,7 +127,7 @@ verbose = True
 draw_box = True # Show the grid? Can be toggled by using the "#" key
 
 # Use precomputed numpy data array instead of translating it each time
-preload_data = False
+preload_data = True
 
 # Mouse sensitivity for rotating
 sensitivity = 0.5
@@ -177,12 +177,13 @@ if verbose: print ("r squared:", r_squared)
 #### Reduce the data shown for performance reasons, use step as a divider
 # step = 10
 # data = data[:, ::step]
+data = time2energy(data, 16,36, 26.6, 0.5, 5.31)
 data[0] /= 1401.
 data[1] /= 1401.
-data[2] /= 1.*frames
+data[2] /= np.max(data[2])-np.min(data[2])#1.*frames
+print ("Min", np.min(data[2]), "Max", np.max(data[2]))
 data -= 0.5
 if verbose: print (data[:,0], data[:,-1])
-
 # counter = int(counter/step)+1
 ################### END OF REDUCTION OF DATA POINTS
 
