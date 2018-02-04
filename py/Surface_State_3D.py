@@ -22,7 +22,7 @@ from glumpy.transforms import Trackball, Position
 # Used for vertices and indices of a cube
 from glumpy.geometry import colorcube, primitives 
 
-from data import load_tiff, preload
+from data import load_tiff, preload, time2energy
 
 def paraBolEqn(data,b,curv,d, zcenter):
     ''' Equation for the paraboloid used to fit the surface state at the Fermi edge.'''
@@ -199,9 +199,21 @@ if verbose: print ("r squared:", r_squared)
 #### Reduce the data shown for performance reasons, use step as a divider
 # step = 10
 # data = data[:, ::step]
+
+############# CONVERSION TO ENERGY
+E_Photon = 26.6 # Photon energy in eV
+E_SurfaceState = 0.5 # Distance from Surface state to Fermi edge in eV
+E_Binding = 5.31 # Binding energy of the material in eV
+Slide_EF = 16 # Time slide where the Fermi edge can be found
+Slide_SS = 36 # Time slide which shows the vertex of the parabolic surface state
+
+
+data = time2energy(data, Slide_EF, Slide_SS, E_Photon, E_SurfaceState, E_Binding)
 data[0] /= 1401.
 data[1] /= 1401.
-data[2] /= 1.*frames
+# Normalize z coordinates
+data[2] /= np.max(data[2])-np.min(data[2])#1.*frames
+#data[2] /= 1.*frames
 data -= 0.5
 if verbose: print (data[:,0], data[:,-1])
 
@@ -236,7 +248,7 @@ surface_indices = surface_indices.reshape(-1).astype(np.uint32).view(gloo.IndexB
 surface_vertices /= float(box_size)
 surface_vertices -= 0.5
 # surface_vertices = vertices.view(gloo.VertexBuffer)
-import ipdb; ipdb.set_trace()
+#import ipdb; ipdb.set_trace()
 surface = gloo.Program(vertex=surface_vert, fragment=surface_frag)
 surface['position'] = surface_vertices
 
