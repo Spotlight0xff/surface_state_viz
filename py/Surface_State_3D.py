@@ -98,19 +98,25 @@ void main()
 # Vertex shader for the isosurface
 surface_vert = """
 attribute vec3 position;
+attribute vec4 vColor;
+
+varying vec4  v_vColor;
 
 void main()
 {
     gl_Position = <transform>;
+    v_vColor = vColor;
 }
 """
 
 # Fragment shader for the isosurface
 
 surface_frag = """
-void main()
+varying vec4  v_vColor;
+
+void main() 
 {
-    gl_FragColor = vec4(1.0,0.0,0., 0.1);
+    gl_FragColor = v_vColor;//vec4(1.0,0.0,0., 0.1);
 }
 """
 
@@ -149,7 +155,7 @@ verbose = True
 draw_box = True # Show the grid? Can be toggled by using the "#" key
 
 # Use precomputed numpy data array instead of translating it each time
-preload_data = False
+preload_data = True
 
 # Mouse sensitivity for rotating
 sensitivity = 0.5
@@ -209,6 +215,16 @@ Slide_SS = 36 # Time slide which shows the vertex of the parabolic surface state
 
 
 data = time2energy(data, Slide_EF, Slide_SS, E_Photon, E_SurfaceState, E_Binding)
+coords_masked = time2energy(coords_masked, Slide_EF, Slide_SS, E_Photon, E_SurfaceState, E_Binding)
+
+param_guess = [660, 0.01, 600, -0.5]
+popt,pcov=opt.curve_fit(paraBolEqn,np.vstack((coords_masked[0, :],coords_masked[1, :])),coords_masked[2, :], p0=param_guess , maxfev=1000000)#, diag = (np.vstack((coords[0, :],coords[1, :])).mean(),coords[2, :].mean()) )
+print (np.max(data[2]), np.min(data[2]))#1.*frames)
+print (np.max(coords_masked[2]), np.min(coords_masked[2]))#1.*frames)
+
+if verbose: print ("Param guess was:", param_guess)
+if verbose: print (popt, 'opt Values found' )
+
 data[0] /= 1401.
 data[1] /= 1401.
 # Normalize z coordinates
@@ -251,6 +267,7 @@ surface_vertices -= 0.5
 #import ipdb; ipdb.set_trace()
 surface = gloo.Program(vertex=surface_vert, fragment=surface_frag)
 surface['position'] = surface_vertices
+surface['vColor'] = 1.0, 0.0, 0.0, 0.1
 
 # import seaborn as sns
 # cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
@@ -357,7 +374,7 @@ def on_draw(dt):
     global theta, phi, zeta, translate
     window.clear()
     program.draw(gl.GL_POINTS)
-    gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+    gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
     surface.draw(gl.GL_TRIANGLES, indices=surface_indices)
     transform.on_mouse_drag(window.width//2, window.height/2 + 200, 1, 0, 0)
 
