@@ -16,6 +16,8 @@ import scipy.optimize as opt
 from glumpy.graphics.collections import GlyphCollection
 from glumpy.graphics.collections import PathCollection
 from glumpy.graphics.collections import SegmentCollection
+from glumpy.graphics.text import FontManager
+
 
 from glumpy.transforms import Trackball, Position
 
@@ -231,7 +233,11 @@ data[1] /= 1401.
 data[2] /= np.max(data[2])-np.min(data[2])#1.*frames
 #data[2] /= 1.*frames
 data -= 0.5
+data[2] -= np.min(data[2])+0.5
 if verbose: print (data[:,0], data[:,-1])
+print (np.max(data[0]), np.min(data[0]), 'Max Min Ende')
+print (np.max(data[1]), np.min(data[1]), 'Max Min Ende')
+print (np.max(data[2]), np.min(data[2]), 'Max Min Ende')
 
 # counter = int(counter/step)+1
 ################### END OF REDUCTION OF DATA POINTS
@@ -295,7 +301,19 @@ program = gloo.Program(vertex, fragment, count=counter)
 view = np.eye(4, dtype=np.float32)
 glm.translate(view, 0, 0, -2)
 
+
+
+
+########## TEST: LABELS
+labels = GlyphCollection()
+#labels.append("Hello my friend",  FontManager.get("Roboto-Regular.ttf"), origin=(-0.5, -0.5, -0.5), direction = (1., 0., 0.), scale=0.000001, anchor_x="left")
+title = "."
+labels.append(title, FontManager.get("Roboto-Regular.ttf"), origin = (0, 0, 0),
+              scale= 0.001, direction = (1,0,0),
+              anchor_x = "center", anchor_y = "center")
+
 ########## GRID WITH TICKS, COPIED FROM LORENZ.PY, CURRENTLY NOT WORKING
+
 
 #transform = transforms.Trackball(transforms.Position())
 #viewport = transforms.Viewport()
@@ -366,6 +384,8 @@ transform = Trackball(Position('position'), distance=3)
 program['transform'] = transform
 box['transform'] = transform
 surface['transform'] = transform
+labels['transform'] = transform
+
 window.attach(transform)
 
 
@@ -377,7 +397,8 @@ def on_draw(dt):
     gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_FILL)
     surface.draw(gl.GL_TRIANGLES, indices=surface_indices)
     transform.on_mouse_drag(window.width//2, window.height/2 + 200, 1, 0, 0)
-
+    labels.draw()
+    
     # print(transform.phi, transform.theta)
     #ticks.draw()
     # if draw_box:
