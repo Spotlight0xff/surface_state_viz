@@ -199,10 +199,23 @@ if verbose: print ("r squared:", r_squared)
 #### Reduce the data shown for performance reasons, use step as a divider
 # step = 10
 # data = data[:, ::step]
-data = time2energy(data, 16,36, 26.6, 0.5, 5.31)
+
+############# CONVERSION TO ENERGY
+E_Photon = 26.6 # Photon energy in eV
+E_SurfaceState = 0.5 # Distance from Surface state to Fermi edge in eV
+E_Binding = 5.31 # Binding energy of the material in eV
+Slide_EF = 16 # Time slide where the Fermi edge can be found
+Slide_SS = 36 # Time slide which shows the vertex of the parabolic surface state
+
+
+data = time2energy(data, Slide_EF, Slide_SS, E_Photon, E_SurfaceState, E_Binding)
 data[0] /= 1401.
 data[1] /= 1401.
+# Normalize z coordinates
 data[2] /= np.max(data[2])-np.min(data[2])#1.*frames
+data[2] -= np.min(data[2])
+#data[2] /= 1.*frames
+
 print ("Min", np.min(data[2]), "Max", np.max(data[2]))
 data -= 0.5
 if verbose: print (data[:,0], data[:,-1])
@@ -237,21 +250,21 @@ surface_indices = surface_indices.reshape(-1).astype(np.uint32).view(gloo.IndexB
 surface_vertices /= float(box_size)
 surface_vertices -= 0.5
 # surface_vertices = vertices.view(gloo.VertexBuffer)
-import ipdb; ipdb.set_trace()
+#import ipdb; ipdb.set_trace()
 surface = gloo.Program(vertex=surface_vert, fragment=surface_frag)
 surface['position'] = surface_vertices
 
-# import seaborn as sns
-# cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
-# for i in range(1):
-    # plt.clf()
-    # b = np.where(density[:,2] == (i/float(box_size)-0.5))
-    # print(b)
-    # den = density[b]
-    # if den.shape[1] == 0 or len(den)==0: continue
-    # print('step %i, den: %s' % (i, den.shape))
-    # sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
-    # plt.show()
+#import seaborn as sns
+#cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
+#for i in range(47):
+#    plt.clf()
+#    b = np.where(density[:,2] == (i/float(box_size)-0.5))
+#    print(b)
+#    den = density[b]
+#    if den.shape[1] == 0 or len(den)==0: continue
+#    print('step %i, den: %s' % (i, den.shape))
+#    sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
+#    plt.show()
 print('max density: ', max_density)
 
 counter = density.shape[0]
