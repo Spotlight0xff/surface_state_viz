@@ -19,7 +19,7 @@ from glumpy.graphics.collections import SegmentCollection
 from glumpy.graphics.text import FontManager
 
 
-from glumpy.transforms import Trackball, Position
+from glumpy.transforms import Trackball, Position, Viewport
 
 # Used for vertices and indices of a cube
 from glumpy.geometry import colorcube, primitives 
@@ -302,15 +302,26 @@ view = np.eye(4, dtype=np.float32)
 glm.translate(view, 0, 0, -2)
 
 
+transform = Trackball(Position('position'), distance=30)
 
 
 ########## TEST: LABELS
-labels = GlyphCollection()
+labels = GlyphCollection(transform = transform)
 #labels.append("Hello my friend",  FontManager.get("Roboto-Regular.ttf"), origin=(-0.5, -0.5, -0.5), direction = (1., 0., 0.), scale=0.000001, anchor_x="left")
-title = "."
-labels.append(title, FontManager.get("Roboto-Regular.ttf"), origin = (0, 0, 0),
-              scale= 0.001, direction = (1,0,0),
+font = FontManager.get("SourceSansPro-Regular.otf", size=12) # agg not implemented, sdf does not know Font sizes!!!
+print (font.height)
+scale = 0.002
+labels.append("1", font, origin = (0, 0, 0),
+              scale= scale, direction = (1,0,0),
               anchor_x = "center", anchor_y = "center")
+labels.append("2", font, origin = (1, 1, -1),
+              scale= 1.5*scale, direction = (1,0,0),
+              anchor_x = "center", anchor_y = "center")
+labels.append("3", font, origin = (-1, -1, 0),
+              scale= 2*scale, direction = (1,0,0),
+              anchor_x = "center", anchor_y = "center", color = [1., 0., 1., 1.])
+print (labels[0]['scale'])
+#	labels['scale'] = 0.00001
 
 ########## GRID WITH TICKS, COPIED FROM LORENZ.PY, CURRENTLY NOT WORKING
 
@@ -380,13 +391,13 @@ program['aDensity'] = density[:,3]
 # while using transparency, higher radii are recommended
 ######################################################### END TRANSPARENCY
 
-transform = Trackball(Position('position'), distance=3)
 program['transform'] = transform
 box['transform'] = transform
 surface['transform'] = transform
-labels['transform'] = transform
+#labels['transform'] = transform
 
 window.attach(transform)
+window.attach(labels["viewport"])
 
 
 @window.event
@@ -445,9 +456,11 @@ def on_character(character):
     if character == 'm':
         box['position'] += [0, 0, +0.02]
         program['position'] += [0, 0, +0.02]
+        labels['origin'] += [0, 0, +0.02]
     if character == 'n':
         box['position'] -= [0, 0, +0.02]
         program['position'] -= [0, 0, +0.02]
+        labels['origin'] -= [0, 0, +0.02]
     if character == 's':
         program['uTransfer1'] -= 0.01
         print("transfer1: ", program['uTransfer1'])
@@ -460,7 +473,5 @@ def on_character(character):
     if character == 'd':
         program['uTransfer2'] += 0.01
         print("transfer1: ", program['uTransfer2'])
-
-
-
+transform.zoom = 16.5
 app.run(framerate=144)
