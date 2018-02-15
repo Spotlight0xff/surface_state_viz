@@ -71,7 +71,7 @@ void main (void)
     vRadius = aRadius;
     vColor = densityTransfer(aDensity);
 
-    gl_Position = <transform>;
+    gl_Position = <transform(vec4(position.xyz,1))>;
     gl_PointSize = vRadius * 5*aDensity;
 }
 """
@@ -106,7 +106,7 @@ varying vec4  v_vColor;
 
 void main()
 {
-    gl_Position = <transform>;
+    gl_Position = <transform(vec4(position, 1))>;
     v_vColor = vColor;
 }
 """
@@ -302,32 +302,24 @@ view = np.eye(4, dtype=np.float32)
 glm.translate(view, 0, 0, -2)
 
 
-transform = Trackball(Position('position'), distance=30)
+transform = Trackball(Position())
+viewport = Viewport()
 
 
 ########## TEST: LABELS
-labels = GlyphCollection(transform = transform)
-#labels.append("Hello my friend",  FontManager.get("Roboto-Regular.ttf"), origin=(-0.5, -0.5, -0.5), direction = (1., 0., 0.), scale=0.000001, anchor_x="left")
-font = FontManager.get("SourceSansPro-Regular.otf", size=12) # agg not implemented, sdf does not know Font sizes!!!
-print (font.height)
-scale = 0.002
-labels.append("1", font, origin = (0, 0, 0),
-              scale= scale, direction = (1,0,0),
-              anchor_x = "center", anchor_y = "center")
-labels.append("2", font, origin = (1, 1, -1),
-              scale= 1.5*scale, direction = (1,0,0),
-              anchor_x = "center", anchor_y = "center")
-labels.append("3", font, origin = (-1, -1, 0),
-              scale= 2*scale, direction = (1,0,0),
-              anchor_x = "center", anchor_y = "center", color = [1., 0., 1., 1.])
-print (labels[0]['scale'])
-#	labels['scale'] = 0.00001
+labels = GlyphCollection(transform=transform, viewport=viewport)
+font = FontManager.get("Roboto-Regular.ttf")
+
+text = "x axis"
+x,y,z = 0,0,0
+labels.append("x-axis", font, origin = (x+5,y,z), scale=0.005, direction=(1,0,0), anchor_x="center", anchor_y="center")
+labels.append("y-axis", font, origin = (x,y+5,z), scale=0.005, direction=(0,1,0), anchor_x="center", anchor_y="center")
+labels.append("z-axis", font, origin = (x,y,z), scale=0.005, direction=(0,0,1), anchor_x="center", anchor_y="center")
 
 ########## GRID WITH TICKS, COPIED FROM LORENZ.PY, CURRENTLY NOT WORKING
 
 
 #transform = transforms.Trackball(transforms.Position())
-#viewport = transforms.Viewport()
 #ticks = SegmentCollection(mode="agg++",viewport = viewport, transform = transform, linewidth='local', color='local')
 #window.attach(ticks["transform"])
 #window.attach(ticks["viewport"])
@@ -394,10 +386,9 @@ program['aDensity'] = density[:,3]
 program['transform'] = transform
 box['transform'] = transform
 surface['transform'] = transform
-#labels['transform'] = transform
 
 window.attach(transform)
-window.attach(labels["viewport"])
+window.attach(viewport)
 
 
 @window.event
