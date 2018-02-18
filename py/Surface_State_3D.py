@@ -6,8 +6,10 @@ import numpy.ma as ma
 from mpl_toolkits.mplot3d import Axes3D
 # Matplotlib
 import matplotlib
+
 matplotlib.use("Qt4Agg")
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 # Glumpy package for GPU-rendering
 from glumpy import app, gl, gloo, glm, transforms
 import itertools
@@ -16,13 +18,14 @@ import scipy.optimize as opt
 from glumpy.graphics.collections import GlyphCollection
 from glumpy.graphics.collections import PathCollection
 from glumpy.graphics.collections import SegmentCollection
+from glumpy.graphics.text import FontManager
 
-from glumpy.transforms import Trackball, Position
+from glumpy.transforms import Trackball, Position, Viewport
 
 # Used for vertices and indices of a cube
 from glumpy.geometry import colorcube, primitives 
 
-from data import load_tiff, preload
+from data import load_tiff, preload, time2energy
 
 def paraBolEqn(data,b,curv,d, zcenter):
     ''' Equation for the paraboloid used to fit the surface state at the Fermi edge.'''
@@ -67,7 +70,7 @@ void main (void)
     vRadius = aRadius;
     vColor = densityTransfer(aDensity);
 
-    gl_Position = <transform>;
+    gl_Position = <transform(vec4(position, 1))>;
     gl_PointSize = vRadius * 5*aDensity;
 }
 """
@@ -106,7 +109,7 @@ varying vec4 vColor;
 void main()
 {
     vColor = uColor * aColor;
-    gl_Position = <transform>;
+    gl_Position = <transform(vec4(position, 1))>;
 }
 """
 
@@ -172,16 +175,36 @@ if verbose: print ("r squared:", r_squared)
 
 # counter = data.shape[1]
 
+############# CONVERSION TO ENERGY
+E_Photon = 26.6 # Photon energy in eV
+E_SurfaceState = 0.5 # Distance from Surface state to Fermi edge in eV
+E_Binding = 5.31 # Binding energy of the material in eV
+Slide_EF = 16 # Time slide where the Fermi edge can be found
+Slide_SS = 36 # Time slide which shows the vertex of the parabolic surface state
 
-################### REDUCTION OF DATA POINTS
-#### Reduce the data shown for performance reasons, use step as a divider
-step = 10
-data = data[:, ::step]
+
+data = time2energy(data, Slide_EF, Slide_SS, E_Photon, E_SurfaceState, E_Binding)
+coords_masked = time2energy(coords_masked, Slide_EF, Slide_SS, E_Photon, E_SurfaceState, E_Binding)
+
+param_guess = [660, 0.01, 600, -0.5]
+popt,pcov=opt.curve_fit(paraBolEqn,np.vstack((coords_masked[0, :],coords_masked[1, :])),coords_masked[2, :], p0=param_guess , maxfev=1000000)#, diag = (np.vstack((coords[0, :],coords[1, :])).mean(),coords[2, :].mean()) )
+print (np.max(data[2]), np.min(data[2]))#1.*frames)
+print (np.max(coords_masked[2]), np.min(coords_masked[2]))#1.*frames)
+
+if verbose: print ("Param guess was:", param_guess)
+if verbose: print (popt, 'opt Values found' )
+
 data[0] /= 1401.
 data[1] /= 1401.
-data[2] /= 1.*frames
+# Normalize z coordinates
+data[2] /= np.max(data[2])-np.min(data[2])#1.*frames
+#data[2] /= 1.*frames
 data -= 0.5
+data[2] -= np.min(data[2])+0.5
 if verbose: print (data[:,0], data[:,-1])
+print (np.max(data[0]), np.min(data[0]), 'Max Min Ende')
+print (np.max(data[1]), np.min(data[1]), 'Max Min Ende')
+print (np.max(data[2]), np.min(data[2]), 'Max Min Ende')
 
 # counter = int(counter/step)+1
 ################### END OF REDUCTION OF DATA POINTS
@@ -205,18 +228,18 @@ density[:,:-1] /= float(box_size)
 density[:,:-1] -= 0.5
 density[:,3] /= max_density
 
-import seaborn as sns
-cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
-for i in range(50):
-    plt.clf()
-    b = np.where(density[:,2] == (i/float(box_size)-0.5))
-    print(b)
-    den = density[b]
-    if den.shape[1] == 0 or len(den)==0: continue
-    print('step %i, den: %s' % (i, den.shape))
-    sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
-    plt.savefig('density_%i.png' % i)
-print('max density: ', max_density)
+#import seaborn as sns
+#cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
+#for i in range(50):
+#    plt.clf()
+#    b = np.where(density[:,2] == (i/float(box_size)-0.5))
+#    print(b)
+#    den = density[b]
+#    if den.shape[1] == 0 or len(den)==0: continue
+#    print('step %i, den: %s' % (i, den.shape))
+#    sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
+#    plt.savefig('density_%i.png' % i)
+#print('max density: ', max_density)
 
 counter = density.shape[0]
 if verbose: print ('Counts in total', counter)
@@ -230,6 +253,28 @@ window = app.Window(width=800, height=800, color=(1,1,1,1))
 program = gloo.Program(vertex, fragment, count=counter)
 view = np.eye(4, dtype=np.float32)
 glm.translate(view, 0, 0, -2)
+
+transform = Trackball(Position())
+viewport = Viewport()
+
+########## TEST: LABELS
+labels = GlyphCollection(transform=transform, viewport=viewport)
+font = FontManager.get("Roboto-Regular.ttf")
+
+x,y,z = 0,0,0
+labels.append("kx", font, origin = (x+0.65,y,z), scale=0.002, direction=(1,0,0), anchor_x="center", anchor_y="center")
+labels.append("ky", font, origin = (x,y+0.65,z), scale=0.002, direction=(0,1,0), anchor_x="center", anchor_y="center")
+labels.append("E-EF", font, origin = (x,y,z+0.45), scale=0.002, direction=(0.7, 0.7, 1.), anchor_x="top", anchor_y="top")
+
+
+######## TEST: AXES
+x0, y0, z0 = .5, .5, .5
+vertices = [[(-0.05, -0.05, 0), (-0.05, -0.05, 0), (-0.05, -0.05, 0) ], [(x0-0.05, -0.05, 0), (-0.05, y0-0.05, 0), (-0.05, -0.05, z0)]]
+print (vertices[0])
+ticks = SegmentCollection(mode="agg++",viewport = viewport, transform = transform, linewidth='local', color='local')
+ticks.append(vertices[0], vertices[1], linewidth=4.)
+#ticks.append(vertices[2], vertices[3])
+#ticks.append(vertices[4], vertices[5])
 
 ########## GRID WITH TICKS, COPIED FROM LORENZ.PY, CURRENTLY NOT WORKING
 
@@ -282,32 +327,34 @@ if verbose: print (box['position'].shape)
 program['position'] = np.transpose(density[:,:-1].T)
 program['uBoxsize'] = box_size
 program['aRadius']   = 10
-program['aColor'] = 1,0,0,1
+#program['aColor'] = 1,0,0,1
 # some sane defaults for the transfer function to color the densities
 program['uTransfer1'] = 0.3
 program['uTransfer2'] = 0.5
 #colors = np.random.uniform(0.75, 1.00, (counter, 4))
 colors = np.random.uniform(0.01, 0.02, (counter, 4))
+colors = cm.jet(density[:,2]+0.5)
+program['aColor'] = 1,1,0,1
 # Change the red part of the color of data points to give an impression of the z value
 colors[:,0] = 0.5
 #colors[:,1] = data[2, :]
 #colors[:,2] = data[2, :]
 ######################################################### TRANSPARENCY
-# colors[:,3] = density[:,3] # 1 equals no transparency at all
+#colors[:,3] = density[:,3] # 1 equals no transparency at all
 program['aDensity'] = density[:,3]
 # while using transparency, higher radii are recommended
 ######################################################### END TRANSPARENCY
 
-transform = Trackball(Position('position'), distance=3)
 program['transform'] = transform
 box['transform'] = transform
 window.attach(transform)
-
+window.attach(viewport)
 
 @window.event
 def on_draw(dt):
     global theta, phi, zeta, translate
     window.clear()
+    ticks.draw()
     program.draw(gl.GL_POINTS)
     #ticks.draw()
     if draw_box:
@@ -318,6 +365,7 @@ def on_draw(dt):
         box['uColor'] = 0., 0., 0., 1
         box.draw(gl.GL_LINES)#, outline)
         # gl.glDepthMask(gl.GL_TRUE) 
+    labels.draw()
 
 
 @window.event
@@ -353,9 +401,11 @@ def on_character(character):
     if character == 'm':
         box['position'] += [0, 0, +0.02]
         program['position'] += [0, 0, +0.02]
+        labels['origin'] += [0, 0, +0.02]
     if character == 'n':
         box['position'] -= [0, 0, +0.02]
         program['position'] -= [0, 0, +0.02]
+        labels['origin'] -= [0, 0, +0.02]
     if character == 's':
         program['uTransfer1'] -= 0.05
         print("transfer1: ", program['uTransfer1'])
