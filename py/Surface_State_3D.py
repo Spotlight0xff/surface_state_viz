@@ -55,9 +55,11 @@ varying float vRadius;
 
 vec4 densityTransfer(float aDensity) {
     if (aDensity < uTransfer1) {
-        return vec4(0.1, 0.1, 0.1, aDensity);
-    } else if (aDensity > uTransfer2) {
+        return vec4(0.1, 0.1, 0.1, 0.0);
+    } else if (aDensity < uTransfer2) {
         return vec4(0.8, 0.1, 0.1, aDensity);
+    } else {
+        return vec4(0.8, 0.8, 0.1, aDensity);
     }
 
     // 0.1 -> (uTransfer1) -> smooth -> (uTransfer2) -> 0.8
@@ -87,15 +89,35 @@ varying vec4  vColor;
 void main()
 {
     float dist = length(gl_PointCoord.xy - vec2(0.5,0.5)) * vRadius;
-    float alpha = exp(-dist);
+    float alpha = exp(-dist*dist);
 
     if (dist > vRadius) {
         discard;
     } else {
-        gl_FragColor = vec4(vColor.rgb, vColor*alpha);
+        gl_FragColor = vec4(vColor.rgb, vColor.a*alpha);
     }
 }
 """
+# Vertex shader for the isosurface
+surface_vert = """
+attribute vec3 position;
+
+void main()
+{
+    gl_Position = <transform>;
+}
+"""
+
+# Fragment shader for the isosurface
+
+surface_frag = """
+void main()
+{
+    gl_FragColor = vec4(1.0,0.0,0., 0.1);
+}
+"""
+
+
 
 # Vertex shader for the grid, colors are currently not used in the rendering
 vertex_box = """
@@ -130,7 +152,7 @@ verbose = True
 draw_box = True # Show the grid? Can be toggled by using the "#" key
 
 # Use precomputed numpy data array instead of translating it each time
-preload_data = False
+preload_data = True
 
 # Mouse sensitivity for rotating
 sensitivity = 0.5
@@ -194,18 +216,45 @@ print (np.max(coords_masked[2]), np.min(coords_masked[2]))#1.*frames)
 if verbose: print ("Param guess was:", param_guess)
 if verbose: print (popt, 'opt Values found' )
 
+<<<<<<< HEAD
+=======
+################### REDUCTION OF DATA POINTS
+#### Reduce the data shown for performance reasons, use step as a divider
+# step = 10
+# data = data[:, ::step]
+
+############# CONVERSION TO ENERGY
+E_Photon = 26.6 # Photon energy in eV
+E_SurfaceState = 0.5 # Distance from Surface state to Fermi edge in eV
+E_Binding = 5.31 # Binding energy of the material in eV
+Slide_EF = 16 # Time slide where the Fermi edge can be found
+Slide_SS = 36 # Time slide which shows the vertex of the parabolic surface state
+
+
+data = time2energy(data, Slide_EF, Slide_SS, E_Photon, E_SurfaceState, E_Binding)
+>>>>>>> 1683a7287ce0b6e9fa9cd41a73d130242661dfba
 data[0] /= 1401.
 data[1] /= 1401.
 # Normalize z coordinates
 data[2] /= np.max(data[2])-np.min(data[2])#1.*frames
+<<<<<<< HEAD
 #data[2] /= 1.*frames
+=======
+data[2] -= np.min(data[2])
+#data[2] /= 1.*frames
+
+print ("Min", np.min(data[2]), "Max", np.max(data[2]))
+>>>>>>> 1683a7287ce0b6e9fa9cd41a73d130242661dfba
 data -= 0.5
 data[2] -= np.min(data[2])+0.5
 if verbose: print (data[:,0], data[:,-1])
+<<<<<<< HEAD
 print (np.max(data[0]), np.min(data[0]), 'Max Min Ende')
 print (np.max(data[1]), np.min(data[1]), 'Max Min Ende')
 print (np.max(data[2]), np.min(data[2]), 'Max Min Ende')
 
+=======
+>>>>>>> 1683a7287ce0b6e9fa9cd41a73d130242661dfba
 # counter = int(counter/step)+1
 ################### END OF REDUCTION OF DATA POINTS
 
@@ -213,7 +262,7 @@ print (np.max(data[2]), np.min(data[2]), 'Max Min Ende')
 # bounding box
 bb_min = data.min(axis=1)
 bb_max = data.max(axis=1)
-box_size = 200
+box_size = 50
 volume_data, edges = np.histogramdd(data.T, bins=box_size)
 
 density_idx = np.transpose(np.nonzero(volume_data))
@@ -228,9 +277,28 @@ density[:,:-1] /= float(box_size)
 density[:,:-1] -= 0.5
 density[:,3] /= max_density
 
+<<<<<<< HEAD
 #import seaborn as sns
 #cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
 #for i in range(50):
+=======
+
+import mcubes
+# roughly uTransfer1 (*max_density, as its not normalized)
+surface_vertices, surface_indices = mcubes.marching_cubes(volume_data, 0.35*max_density)
+surface_indices = surface_indices.reshape(-1).astype(np.uint32).view(gloo.IndexBuffer)
+
+surface_vertices /= float(box_size)
+surface_vertices -= 0.5
+# surface_vertices = vertices.view(gloo.VertexBuffer)
+#import ipdb; ipdb.set_trace()
+surface = gloo.Program(vertex=surface_vert, fragment=surface_frag)
+surface['position'] = surface_vertices
+
+#import seaborn as sns
+#cmap = sns.cubehelix_palette(as_cmap=True, dark=0, light=1, reverse=True)
+#for i in range(47):
+>>>>>>> 1683a7287ce0b6e9fa9cd41a73d130242661dfba
 #    plt.clf()
 #    b = np.where(density[:,2] == (i/float(box_size)-0.5))
 #    print(b)
@@ -238,8 +306,13 @@ density[:,3] /= max_density
 #    if den.shape[1] == 0 or len(den)==0: continue
 #    print('step %i, den: %s' % (i, den.shape))
 #    sns.kdeplot(den[:,0], den[:,1], shade=True, n_levels=60)
+<<<<<<< HEAD
 #    plt.savefig('density_%i.png' % i)
 #print('max density: ', max_density)
+=======
+#    plt.show()
+print('max density: ', max_density)
+>>>>>>> 1683a7287ce0b6e9fa9cd41a73d130242661dfba
 
 counter = density.shape[0]
 if verbose: print ('Counts in total', counter)
@@ -347,6 +420,7 @@ program['aDensity'] = density[:,3]
 
 program['transform'] = transform
 box['transform'] = transform
+surface['transform'] = transform
 window.attach(transform)
 window.attach(viewport)
 
@@ -356,25 +430,31 @@ def on_draw(dt):
     window.clear()
     ticks.draw()
     program.draw(gl.GL_POINTS)
+    gl.glPolygonMode(gl.GL_FRONT_AND_BACK, gl.GL_LINE)
+    surface.draw(gl.GL_TRIANGLES, indices=surface_indices)
+    transform.on_mouse_drag(window.width//2, window.height/2 + 200, 1, 0, 0)
+
+    # print(transform.phi, transform.theta)
     #ticks.draw()
-    if draw_box:
+    # if draw_box:
         # Outlined cube
-        gl.glDisable(gl.GL_POLYGON_OFFSET_FILL)
-        gl.glDepthMask(gl.GL_FALSE)
+        # gl.glDisable(gl.GL_POLYGON_OFFSET_FILL)
+        # gl.glDepthMask(gl.GL_FALSE)
         # Grid color is BLACK
-        box['uColor'] = 0., 0., 0., 1
-        box.draw(gl.GL_LINES)#, outline)
+        # box['uColor'] = 0., 0., 0., 1
+        # box.draw(gl.GL_LINES)#, outline)
         # gl.glDepthMask(gl.GL_TRUE) 
     labels.draw()
 
 
 @window.event
 def on_init():
+    pass
     # gl.glEnable(gl.GL_DEPTH_TEST)
     # # gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE)
-    gl.glPolygonOffset(1, 1)
-    gl.glEnable(gl.GL_LINE_SMOOTH)
-    gl.glLineWidth(0.02)
+    # gl.glPolygonOffset(1, 1)
+    # gl.glEnable(gl.GL_LINE_SMOOTH)
+    # gl.glLineWidth(0.02)
 
 @window.event
 def on_key_press(key, modifiers):
@@ -407,16 +487,16 @@ def on_character(character):
         program['position'] -= [0, 0, +0.02]
         labels['origin'] -= [0, 0, +0.02]
     if character == 's':
-        program['uTransfer1'] -= 0.05
+        program['uTransfer1'] -= 0.01
         print("transfer1: ", program['uTransfer1'])
     if character == 'w':
-        program['uTransfer1'] += 0.05
+        program['uTransfer1'] += 0.01
         print("transfer1: ", program['uTransfer1'])
     if character == 'a':
-        program['uTransfer2'] -= 0.05
+        program['uTransfer2'] -= 0.01
         print("transfer2: ", program['uTransfer2'])
     if character == 'd':
-        program['uTransfer2'] += 0.05
+        program['uTransfer2'] += 0.01
         print("transfer1: ", program['uTransfer2'])
 
 

@@ -17,7 +17,10 @@ import scipy.optimize as opt
 tiff_file = '../data/014_HHGAU111.tif'
 preload_file = '../data/particle_data.npy'
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 1683a7287ce0b6e9fa9cd41a73d130242661dfba
 def EnergyFunc(t, a, t0):
     return  float(a)/(t - t0)**2
 def preload(verbose=False):
