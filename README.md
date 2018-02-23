@@ -37,4 +37,4 @@ pip install triangle
   - Extract the zip & copy one of the glfw.dll files from one of the "lib-xxxxx" folders to your python3 folder (probably `...\Anaconda3\Library\bin`).
   The preferred file is probably from "lib-mingw-w64," you do not need to rename it.
 
-7. For some reason, the freetype pre-compiled binaries for windows do not allow for LCD filters which where introduced in freetype version 2.8.1 (maybe the binaries are not as up-to-date as claimed?). Therefore, you should probably change a line in the glumpy module source code, namely comment the line 27 `freetype.set_lcd_filter(freetype.FT_LCD_FILTER_LEGACY)` in `...\Anaconda3\envs\GlumpyEnv\Lib\site-packages\glumpy\graphics\text\agg_font.py`.
+7. For some reason, the freetype pre-compiled binaries for windows do not allow for LCD filters which where introduced in freetype version 2.8.1 (maybe the binaries are not as up-to-date as claimed?). Therefore, you should probably change a line in the glumpy module source code, namely comment the line 27 `freetype.set_lcd_filter(freetype.FT_LCD_FILTER_LIGHT)` in `...\Anaconda3\envs\GlumpyEnv\Lib\site-packages\glumpy\graphics\text\agg_font.py`.
